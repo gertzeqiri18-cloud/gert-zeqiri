@@ -1,0 +1,8 @@
+{
+  "name": "EdgeTracker",
+  "description": "An AI-powered trading journal and risk management platform for discipline and edge identification.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
