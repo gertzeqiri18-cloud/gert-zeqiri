@@ -101,10 +101,10 @@ const Dashboard: React.FC<DashboardProps> = ({ trades, account, selectedPhase, o
                 <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100 dark:text-slate-800" />
                 <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={502.65} strokeDashoffset={502.65 - (502.65 * winRate / 100)} className="text-primary transition-all duration-1000 ease-out" strokeLinecap="round" />
               </svg>
-              {/* Perfectly centered win rate text inside the donut */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+              {/* Perfectly centered win rate text */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center flex flex-col items-center justify-center">
                 <span className="text-5xl font-black tracking-tighter leading-none text-slate-900 dark:text-white">{winRate.toFixed(0)}%</span>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2">Win Rate</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2 whitespace-nowrap">Win Rate</span>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-6 w-full mt-10 px-4">
@@ -149,9 +149,9 @@ const MetricCard: React.FC<{ label: string, current: number, limit: number, colo
 };
 
 const DonutStat: React.FC<{ label: string, val: number, color: string }> = ({ label, val, color }) => (
-  <div className="text-center">
+  <div className="text-center flex flex-col items-center">
     <div className={`text-xl font-black ${color}`}>{val}</div>
-    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mt-1">{label}</div>
+    <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mt-1 whitespace-nowrap">{label}</div>
   </div>
 );
 

@@ -21,7 +21,7 @@ import { fetchForexNews } from './services/newsService';
 const Icons = {
   Dashboard: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
   Journal: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
-  Calendar: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+  Calendar: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" /></svg>,
   Calculator: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
   News: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg>,
   Projection: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>,
@@ -41,6 +41,7 @@ const App: React.FC = () => {
   const [selectedPhase, setSelectedPhase] = useState<number>(1);
   const [behavioralAlert, setBehavioralAlert] = useState<{message: string, type: 'warning' | 'info' | 'critical'} | null>(null);
   const [news, setNews] = useState<NewsEvent[]>([]);
+  const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
 
   const selectedAccount = useMemo(() => accounts.find(a => a.id === selectedAccountId), [accounts, selectedAccountId]);
 
@@ -127,22 +128,79 @@ const App: React.FC = () => {
     setIsPhaseModalOpen(false);
   };
 
-  const handleSaveTrade = (tradeData: Omit<Trade, 'id' | 'phase'>) => {
-    if (!selectedAccount) return;
-    const newTrade = { ...tradeData, id: Math.random().toString(36).substr(2, 9), phase: selectedAccount.isFunded ? 4 : selectedAccount.currentStep };
-    const updatedTrades = [...trades, newTrade];
-    setTrades(updatedTrades);
-    const updatedAccounts = accounts.map(acc => acc.id === selectedAccountId ? { ...acc, balance: acc.balance + tradeData.profitAmount } : acc);
-    setAccounts(updatedAccounts);
+  const handleSaveTrade = (tradeData: Omit<Trade, 'id' | 'phase'>, id?: string) => {
+    const targetAccountId = tradeData.accountId || selectedAccountId;
+    const targetAccount = accounts.find(a => a.id === targetAccountId) || selectedAccount || accounts[0];
     
-    // Auto-check phase passing
-    const currentPhaseTrades = updatedTrades.filter(t => t.accountId === selectedAccountId && t.phase === (selectedAccount.isFunded ? 4 : selectedAccount.currentStep));
-    const phasePnL = currentPhaseTrades.reduce((sum, t) => sum + t.profitAmount, 0);
-    const stepConfig = selectedAccount.currentStep === 1 ? selectedAccount.stepTargets.step1 : selectedAccount.currentStep === 2 ? selectedAccount.stepTargets.step2 : selectedAccount.stepTargets.step3;
-    if (stepConfig && phasePnL >= (selectedAccount.startingBalance * stepConfig.profitTarget / 100) && !selectedAccount.isFunded && (selectedAccount.lastPassedStep || 0) < selectedAccount.currentStep) {
-      setIsPhaseModalOpen(true);
-      setAccounts(updatedAccounts.map(a => a.id === selectedAccountId ? { ...a, lastPassedStep: a.currentStep } : a));
+    if (!targetAccount) {
+      alert("No active account found. Please create a portfolio in the Portfolios tab first.");
+      setActiveTab(AppTab.Accounts);
+      return;
     }
+
+    if (id) {
+      // UPDATE EXISTING TRADE
+      const oldTrade = trades.find(t => t.id === id);
+      const profitDiff = oldTrade ? tradeData.profitAmount - oldTrade.profitAmount : 0;
+      
+      setTrades(prev => prev.map(t => t.id === id ? { ...tradeData, id, phase: t.phase } as Trade : t));
+      setAccounts(prev => prev.map(acc => 
+        acc.id === targetAccount.id ? { ...acc, balance: acc.balance + profitDiff } : acc
+      ));
+      setEditingTrade(null);
+    } else {
+      // NEW TRADE
+      const currentTradePhase = targetAccount.isFunded ? 4 : targetAccount.currentStep;
+      const newTrade = { 
+        ...tradeData, 
+        id: Math.random().toString(36).substr(2, 9), 
+        phase: currentTradePhase,
+        accountId: targetAccount.id 
+      };
+      
+      const updatedTrades = [...trades, newTrade];
+      setTrades(updatedTrades);
+      
+      const updatedAccounts = accounts.map(acc => 
+        acc.id === targetAccount.id ? { ...acc, balance: acc.balance + tradeData.profitAmount } : acc
+      );
+      setAccounts(updatedAccounts);
+      
+      // Auto-check phase passing
+      const currentPhaseTrades = updatedTrades.filter(t => t.accountId === targetAccount.id && t.phase === currentTradePhase);
+      const phasePnL = currentPhaseTrades.reduce((sum, t) => sum + t.profitAmount, 0);
+      const stepConfig = targetAccount.currentStep === 1 ? targetAccount.stepTargets.step1 : targetAccount.currentStep === 2 ? targetAccount.stepTargets.step2 : targetAccount.stepTargets.step3;
+      
+      if (stepConfig && phasePnL >= (targetAccount.startingBalance * stepConfig.profitTarget / 100) && !targetAccount.isFunded && (targetAccount.lastPassedStep || 0) < targetAccount.currentStep) {
+        setIsPhaseModalOpen(true);
+        setAccounts(updatedAccounts.map(a => a.id === targetAccount.id ? { ...a, lastPassedStep: targetAccount.currentStep } : a));
+      }
+    }
+  };
+
+  const handleAddAccount = (accData: Omit<Account, 'id' | 'riskLimits'>) => {
+    const newAccount: Account = {
+      ...accData,
+      id: Math.random().toString(36).substr(2, 9),
+      riskLimits: { maxLossesPerDay: 3, maxConsecutiveLosses: 2, dailyProfitGoal: 500, maxTradesPerDay: 5 }
+    };
+    setAccounts(prev => {
+      const next = [...prev, newAccount];
+      if (prev.length === 0 || !selectedAccountId) {
+        setSelectedAccountId(newAccount.id);
+      }
+      return next;
+    });
+  };
+
+  const openLogModal = () => {
+    setEditingTrade(null);
+    setIsLogModalOpen(true);
+  };
+
+  const openEditModal = (trade: Trade) => {
+    setEditingTrade(trade);
+    setIsLogModalOpen(true);
   };
 
   const navItems = [
@@ -174,7 +232,7 @@ const App: React.FC = () => {
         ))}
       </nav>
       <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
-        <button onClick={() => setIsLogModalOpen(true)} className="w-full bg-primary hover:bg-primary-hover text-white font-black py-5 rounded-[2rem] shadow-xl shadow-primary-glow transition-all active:scale-95 uppercase tracking-widest text-xs">LOG PERFORMANCE</button>
+        <button onClick={openLogModal} className="w-full bg-primary hover:bg-primary-hover text-white font-black py-5 rounded-[2rem] shadow-xl shadow-primary-glow transition-all active:scale-95 uppercase tracking-widest text-xs">LOG PERFORMANCE</button>
       </div>
     </>
   );
@@ -202,13 +260,13 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
               <div className="lg:col-span-9 space-y-10">
                 {activeTab === AppTab.Dashboard && <Dashboard trades={filteredTrades} account={selectedAccount} selectedPhase={selectedPhase} onPhaseChange={setSelectedPhase} onAdvanceStep={handleAdvanceStep} alerts={behavioralAlert} />}
-                {activeTab === AppTab.Journal && <JournalView trades={filteredTrades} />}
+                {activeTab === AppTab.Journal && <JournalView trades={filteredTrades} onEditTrade={openEditModal} />}
                 {activeTab === AppTab.StrategySummary && <StrategySummary trades={filteredTrades} />}
                 {activeTab === AppTab.Projection && <PerformanceProjection trades={filteredTrades} account={selectedAccount} />}
                 {activeTab === AppTab.Calendar && <CalendarView trades={filteredTrades} />}
                 {activeTab === AppTab.News && <NewsView news={news} isCached={false} />}
                 {activeTab === AppTab.Calculator && <LotSizeCalculator />}
-                {activeTab === AppTab.Accounts && <AccountManagement accounts={accounts} onAddAccount={a => setAccounts([...accounts, { ...a, id: Math.random().toString(36).substr(2, 9), riskLimits: { maxLossesPerDay: 3, maxConsecutiveLosses: 2, dailyProfitGoal: 500, maxTradesPerDay: 5 } }])} onUpdateAccount={a => setAccounts(accounts.map(acc => acc.id === a.id ? a : acc))} selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} />}
+                {activeTab === AppTab.Accounts && <AccountManagement accounts={accounts} onAddAccount={handleAddAccount} onUpdateAccount={a => setAccounts(accounts.map(acc => acc.id === a.id ? a : acc))} selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} />}
               </div>
               <div className="lg:col-span-3 space-y-8">
                 <AccountSelector accounts={accounts} selectedId={selectedAccountId} onSelect={setSelectedAccountId} />
@@ -228,6 +286,7 @@ const App: React.FC = () => {
         favoriteModels={user.favoriteEntryModels || []}
         onRegisterStrategy={s => setUser({ ...user, favoriteStrategies: [...(user.favoriteStrategies || []), s] })}
         onRegisterModel={m => setUser({ ...user, favoriteEntryModels: [...(user.favoriteEntryModels || []), m] })}
+        initialData={editingTrade}
       />
       <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} user={user} onUpdateUser={setUser} onLogout={() => { localStorage.removeItem('edgeTracker_session_uid'); setUser(null); }} activeAccount={selectedAccount} onUpdateAccount={a => setAccounts(accounts.map(acc => acc.id === a.id ? a : acc))} />
       {selectedAccount && <PhaseCompletionModal isOpen={isPhaseModalOpen} onClose={() => setIsPhaseModalOpen(false)} account={selectedAccount} trades={trades.filter(t => t.accountId === selectedAccountId)} user={user} onAdvanceStep={handleAdvanceStep} />}

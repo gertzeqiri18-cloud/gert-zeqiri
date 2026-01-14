@@ -4,9 +4,10 @@ import { Trade } from '../types';
 
 interface JournalViewProps {
   trades: Trade[];
+  onEditTrade: (trade: Trade) => void;
 }
 
-const JournalView: React.FC<JournalViewProps> = ({ trades }) => {
+const JournalView: React.FC<JournalViewProps> = ({ trades, onEditTrade }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   return (
@@ -22,16 +23,17 @@ const JournalView: React.FC<JournalViewProps> = ({ trades }) => {
               <th className="px-6 py-4">Outcome</th>
               <th className="px-6 py-4">Img</th>
               <th className="px-6 py-4 text-right">Profit/Loss</th>
+              <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
             {trades.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic">No trades logged yet. Start your journey today!</td>
+                <td colSpan={8} className="px-6 py-12 text-center text-slate-400 italic">No trades logged yet. Start your journey today!</td>
               </tr>
             ) : (
               [...trades].reverse().map(trade => (
-                <tr key={trade.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                <tr key={trade.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
                   <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300 font-mono">{trade.date}</td>
                   <td className="px-6 py-4 text-sm font-black text-slate-900 dark:text-white">{trade.symbol}</td>
                   <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{trade.strategy}</td>
@@ -62,6 +64,16 @@ const JournalView: React.FC<JournalViewProps> = ({ trades }) => {
                     trade.profitAmount > 0 ? 'text-primary' : trade.profitAmount < 0 ? 'text-rose-500' : 'text-slate-500'
                   }`}>
                     {trade.profitAmount > 0 ? '+' : ''}${trade.profitAmount.toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      onClick={() => onEditTrade(trade)}
+                      className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
               ))
